@@ -1,4 +1,183 @@
-syntax on
+set nocompatible                                    " we're using vim, not vi 
+"" initialize pathogen
+call pathogen#infect('bundle/{}')
+call pathogen#infect()
+call pathogen#helptags()
 
-" Wrap gitcommit file types at the appropriate length
-filetype indent plugin on
+"" general config
+syntax on
+set autoread                                        " auto reload file changed outside of vim
+set number                                          " line numbers
+set backspace=indent,eol,start                      " make backspace work in insert mode
+set showmode                                        " show current mode
+set nowrap                                          " don't wrap
+set encoding=utf-8
+set cmdheight=2
+set lazyredraw                                      " for performance, don't redraw while executing macros
+set ffs=unix,dos
+set cmdheight=2                                     " height of command bar
+set showmatch                                       " show matching brackets
+set mat=2                                           " and blink every 0.2 seconds
+set modeline                                        " we want to use modelines
+set modelines=5                                     " and look for them in first/last 5 lines
+set laststatus=2                                    " always show status line
+
+"" things that affect how errors are handled
+set visualbell                                      " only display errors visually
+set noerrorbells                                    " quiet!
+set vb t_vb=                                        " don't flash the screen
+
+"" visual config
+set cursorline
+set background=dark
+"" colorscheme solarized
+colorscheme murphy                                  " nice colorschemes: koehler, murphy, slate
+                                                    " torte is nice and dark
+
+if has('clipboard')
+	if has('unnamedplus')
+		set clipboard=unnamed,unnamedplus
+	else
+		set clipboard=unnamed
+	endif
+endif
+
+"set viewoptions=folds,options,cursor.unix,slash
+"set virtualedit=onemore
+
+" set some useful things for defining word boundaries
+set iskeyword-=.
+set iskeyword-=#
+set iskeyword-=-
+
+if &listchars ==# 'eol:$'
+  set listchars=tab:>\ ,trail:-,extends:>,precedes:<,nbsp:+
+  if !has('win32') && (&termencoding ==# 'utf-8' || &encoding ==# 'utf-8')
+    let &listchars = "tab:\u21e5 ,trail:\u2423,extends:\u21c9,precedes:\u21c7,nbsp:\u00b7"
+  endif
+endif
+
+set list
+autocmd VimResized * :wincmd =                      " automatically rebalance windows when vim resized
+
+" allow color schemes to do bright without bold
+" Allow color schemes to do bright colors without forcing bold.
+if &t_Co == 8 && $TERM !~# '^linux'
+  set t_Co=16
+endif
+
+"" indentation config
+set autoindent
+set smartindent
+set smarttab
+set shiftwidth=4
+set softtabstop=4
+set tabstop=4
+set noexpandtab
+filetype plugin on
+filetype indent on
+" this is required with 7.4+
+let g:html_indent_inctags = "html,body,head,tbody"
+
+"" search config
+set incsearch                                       " live searching (search while you type)
+set ignorecase                                      " ignore case when we search
+set smartcase                                       " use smart case
+set hlsearch                                        " highlight matches when searching
+vnoremap <silent> * :call VisualSelection('f')<CR>  " * forward searches for word under cursor
+vnoremap <silent> # :call VisualSelection('b')<CR>  " # backward searches for word under cursor
+
+"" scrolling config
+set scrolloff=8                                     " keep at least 8 lines on the screen when scrolling
+set sidescrolloff=13                                " ????????
+set sidescroll=1
+
+"" make file completion better
+set wildmenu
+set wildmode=list:longest
+set wildignore=*.o,*~,*.pyc,*.class,*.tmp           " ignore these files
+
+"" fancy pants status line
+if has('statusline')
+    set statusline=%<%f\                              " Filename
+    set statusline+=%w%h%m%r                          " Options
+    set statusline+=\ [%{&ff}/%Y]                     " filetype
+    set statusline+=\ [%{getcwd()}]                   " current dir
+    set statusline+=\ [A=\%03.3b/H=\%02.2B]           " ASCII / Hexadecimal value of char
+    set statusline+=%=%-14.(%l,%c%V%)\ [%l/%L]\ %p%%  " Right aligned file nav info
+endif
+
+"" filetype-specific config
+let g:is_bash=1                                     " if we're working with a .sh file, assume it's bash
+autocmd FileType sh   set tabstop=4 shiftwidth=2 expandtab
+autocmd FileType xml  set tabstop=2 shiftwidth=2 expandtab
+autocmd FileType text set spell
+autocmd FileType text set ignorecase
+autocmd FileType text set formatoptions-=c
+autocmd FileType text set formatoptions+=n,2
+autocmd FileType text set smartcase
+autocmd FileType text set noautoindent
+autocmd FileType text set nosmartindent
+autocmd FileType text set nocindent
+
+"" movement config
+" when moving up/down, treat wrapped lines as multiple lines
+" IMPORTANT: do not put anything at the end of these lines (even comments)
+map j gj
+map k gk
+
+"" BEGIN KEY REMAPPINGS
+" IMPORTANT: do not put anything at the end of map lines (even comments)
+
+" change current directory to directory of open buffer
+map <leader>cd :cd %:p:h<cr>:pwd<cr>
+
+" return to the last edit position when opening files
+autocmd BufReadPost *
+    \ if line("'\"") > 0 && line("'\"") <= line("$") |
+    \   exe "normal! g`\"" |
+    \ endif
+" remember info about open buffers on close
+set viminfo^=%
+
+command! FormatJSON call FormatJSON()
+function! FormatJSON()
+	%!python -m json.tool
+endfunction
+
+
+" Simple re-format for minified Javascript
+command! UnMinify call UnMinify()
+function! UnMinify()
+    %s/{\ze[^\r\n]/{\r/g
+    %s/){/) {/g
+    %s/};\?\ze[^\r\n]/\0\r/g
+    %s/;\ze[^\r\n]/;\r/g
+    %s/[^\s]\zs[=&|]\+\ze[^\s]/ \0 /g
+    normal ggVG=
+endfunction
+" append modeline after last line in buffer
+function! AppendModeLine()
+    let l:modeline = printf(" vim: set ts=%d sw=%d tw=%d %set :", &tabstop, &shiftwidth, &textwidth, &expandtab ? '' : 'no')
+    let l:modeline = substitute(&commentstring, "%s", l:modeline, "")
+    call append(line("$"), l:modeline)
+endfunction
+nnoremap <silent> <Leader>ml :call AppendModeLine()<cr>
+
+" <C-L> to clear highlighting; prevents /SODIFJoaidjf/
+if maparg('<C-L>', 'n') ==# ''
+	nnoremap <silent> <C-L> :nohlsearch<CR><C-L>
+endif
+
+" <F12> to toggle paste
+set pastetoggle=<F12>
+
+" for when you forget to do sudo vim
+cmap w!! %!sudo tee > /dev/null %
+"" END KEY REMAPPINGS
+
+"" allow use of local vimrc
+if filereadable(expand("~/.vimrc.local"))
+    source ~/.vimrc.local
+endif
+"" DO NOT PUT ANYTHING BELOW THIS LINE
